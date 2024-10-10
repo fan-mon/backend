@@ -4,8 +4,12 @@ import com.example.fanmon_be.domain.artist.dao.ArtistDAO;
 import com.example.fanmon_be.domain.artist.entity.Artist;
 import com.example.fanmon_be.domain.management.dao.ManagementDAO;
 import com.example.fanmon_be.domain.management.entity.Management;
+import com.example.fanmon_be.domain.user.dto.LoginRequest;
+import com.example.fanmon_be.domain.user.dto.LoginResponse;
+import com.example.fanmon_be.global.exception.ModelNotFoundException;
+import com.example.fanmon_be.global.security.jwt.JwtPlugin;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +22,10 @@ public class ArtistService {
     private ArtistDAO dao;
     @Autowired
     private ManagementDAO managementDAO;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private JwtPlugin jwtPlugin;
 
     public List<Artist> findAll(){
         return dao.findAll();
@@ -46,5 +54,21 @@ public class ArtistService {
         }else{
             System.out.println("삭제하려는 artist 못 불러옴");
         }
+    }
+
+    public LoginResponse login(LoginRequest request) throws Exception {
+        Artist artist = dao.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ModelNotFoundException(request.getEmail()));
+        if(!passwordEncoder.matches(request.getPassword(), artist.getPassword())){
+            throw new Exception("password 불일치");
+        }
+        String accessToken = jwtPlugin.generateAccessToken(
+                artist.getArtistuuid().toString(),
+                artist.getEmail(),
+                artist.getRole().toString()
+        );
+        return new LoginResponse(
+                accessToken
+        );
     }
 }
